@@ -144,7 +144,7 @@ class Obstacle3D {
         const scaledWidth = this.width * scale;
         const scaledHeight = this.height * scale;
         
-        // Apply MUCH LARGER camera offset
+        // Apply camera offset
         const screenX = canvas.width / 2 + (this.x + camera.x * 300) * scale + wobbleAmount;
         const screenY = this.y;
 
@@ -389,7 +389,7 @@ function drawRoad() {
     ctx.setLineDash([]);
 }
 
-// Draw player car with enhanced graphics
+// Draw player car with enhanced graphics - show BACK of car
 function drawPlayer() {
     const carX = canvas.width / 2 + player.x;
     const carY = canvas.height - 100;
@@ -401,11 +401,11 @@ function drawPlayer() {
     ctx.ellipse(carX, carY + carHeight + 10, carWidth / 1.5, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Car body gradient
-    const carGradient = ctx.createLinearGradient(carX - carWidth / 2, carY - carHeight, carX - carWidth / 2, carY);
-    carGradient.addColorStop(0, '#00CC00');
-    carGradient.addColorStop(0.5, '#008800');
-    carGradient.addColorStop(1, '#004400');
+    // Car body gradient - BACK VIEW (bottom to top, showing rear)
+    const carGradient = ctx.createLinearGradient(carX - carWidth / 2, carY, carX - carWidth / 2, carY - carHeight);
+    carGradient.addColorStop(0, '#004400');      // Front (bottom - closer)
+    carGradient.addColorStop(0.5, '#008800');    // Middle
+    carGradient.addColorStop(1, '#00CC00');      // Back (top - farther)
     ctx.fillStyle = carGradient;
     ctx.fillRect(carX - carWidth / 2, carY - carHeight, carWidth, carHeight);
 
@@ -414,44 +414,47 @@ function drawPlayer() {
     ctx.lineWidth = 2;
     ctx.strokeRect(carX - carWidth / 2, carY - carHeight, carWidth, carHeight);
 
-    // Car windows with gradient and glow
-    const windowGradient = ctx.createLinearGradient(carX - carWidth / 2, carY - carHeight + 15, carX - carWidth / 2, carY - carHeight + 35);
-    windowGradient.addColorStop(0, '#00FFFF');
-    windowGradient.addColorStop(1, '#0099FF');
-    ctx.fillStyle = windowGradient;
+    // REAR WINDOWS (top part of car in rear view)
+    const rearWindowGradient = ctx.createLinearGradient(carX - carWidth / 2, carY - carHeight + 10, carX - carWidth / 2, carY - carHeight + 30);
+    rearWindowGradient.addColorStop(0, '#00FFFF');
+    rearWindowGradient.addColorStop(1, '#0099FF');
+    ctx.fillStyle = rearWindowGradient;
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#00FFFF';
-    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 15, carWidth - 10, 20);
+    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 10, carWidth - 10, 20);
     ctx.strokeStyle = '#0066FF';
     ctx.lineWidth = 1;
-    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 15, carWidth - 10, 20);
+    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 10, carWidth - 10, 20);
+    ctx.shadowBlur = 0;
 
-    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 45, carWidth - 10, 20);
-    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 45, carWidth - 10, 20);
-
-    // Headlights with intense glow
-    ctx.fillStyle = '#FFFF00';
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = '#FFFF00';
-    ctx.beginPath();
-    ctx.arc(carX - 15, carY - carHeight - 5, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(carX + 15, carY - carHeight - 5, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Brake lights
-    ctx.fillStyle = '#FF0000';
+    // MIDDLE WINDOW (rear view)
+    ctx.fillStyle = rearWindowGradient;
     ctx.shadowBlur = 15;
+    ctx.shadowColor = '#00FFFF';
+    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 40, carWidth - 10, 20);
+    ctx.strokeStyle = '#0066FF';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 40, carWidth - 10, 20);
+    ctx.shadowBlur = 0;
+
+    // BRAKE LIGHTS (red lights at back/bottom of car in rear view)
+    ctx.fillStyle = '#FF0000';
+    ctx.shadowBlur = 25;
     ctx.shadowColor = '#FF0000';
     ctx.beginPath();
-    ctx.arc(carX - 15, carY + 5, 5, 0, Math.PI * 2);
+    ctx.arc(carX - 15, carY - carHeight + 5, 8, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(carX + 15, carY + 5, 5, 0, Math.PI * 2);
+    ctx.arc(carX + 15, carY - carHeight + 5, 8, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.shadowBlur = 0;
+
+    // Trunk/Rear bumper detail
+    ctx.fillStyle = '#333';
+    ctx.fillRect(carX - carWidth / 2, carY - carHeight - 5, carWidth, 5);
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(carX - carWidth / 2, carY - carHeight - 5, carWidth, 5);
 
     // Wheels with rim detail
     ctx.fillStyle = '#111';
@@ -475,20 +478,15 @@ function drawPlayer() {
     ctx.arc(carX + carWidth / 2, carY + 7, 6, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Speed lines when moving fast
-    if (player.speed > 5) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 3; i++) {
-            ctx.beginPath();
-            ctx.moveTo(carX - carWidth / 2 - 10 - i * 5, carY - carHeight / 2 + (i % 2) * 10);
-            ctx.lineTo(carX - carWidth / 2 - 30 - i * 5, carY - carHeight / 2 + (i % 2) * 10);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(carX + carWidth / 2 + 10 + i * 5, carY - carHeight / 2 + (i % 2) * 10);
-            ctx.lineTo(carX + carWidth / 2 + 30 + i * 5, carY - carHeight / 2 + (i % 2) * 10);
-            ctx.stroke();
-        }
+    // Exhaust smoke when moving fast
+    if (player.speed > 3) {
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(carX - 10, carY + 10 + (player.speed * 5), 8, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(carX + 10, carY + 10 + (player.speed * 5), 8, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
