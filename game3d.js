@@ -6,8 +6,18 @@ const keys = {};
 let score = 0;
 let gameRunning = true;
 let particleEffect = [];
+let shopOpen = false;
 
-// Player car
+// Camera system
+const camera = {
+    angle: 0, // 0 = rear view, 1 = right, -1 = left, 0.5 = right-rear, -0.5 = left-rear
+    targetAngle: 0,
+    x: 0,
+    y: 0,
+    z: 0
+};
+
+// Player car with upgrades
 const player = {
     x: 0,
     speed: 0,
@@ -15,7 +25,57 @@ const player = {
     acceleration: 0.3,
     friction: 0.95,
     boostPower: 0,
-    maxBoost: 100
+    maxBoost: 100,
+    health: 100,
+    maxHealth: 100,
+    money: 0,
+    // Upgrades
+    upgrades: {
+        engine: 0,      // Increases max speed
+        handling: 0,    // Improves turning
+        armor: 0,       // Increases health
+        turbo: 0        // Increases boost capacity
+    }
+};
+
+// Upgrade prices and stats
+const upgradeShop = {
+    engine: {
+        name: 'Engine',
+        price: 50,
+        maxLevel: 5,
+        description: 'Increase max speed',
+        effect: function(level) {
+            return 8 + (level * 0.8);
+        }
+    },
+    handling: {
+        name: 'Handling',
+        price: 40,
+        maxLevel: 5,
+        description: 'Improve turning',
+        effect: function(level) {
+            return 6 + (level * 1.2);
+        }
+    },
+    armor: {
+        name: 'Armor',
+        price: 60,
+        maxLevel: 5,
+        description: 'Increase health',
+        effect: function(level) {
+            return 100 + (level * 20);
+        }
+    },
+    turbo: {
+        name: 'Turbo',
+        price: 45,
+        maxLevel: 5,
+        description: 'Boost capacity',
+        effect: function(level) {
+            return 100 + (level * 20);
+        }
+    }
 };
 
 // Obstacles and coins
@@ -83,7 +143,9 @@ class Obstacle3D {
         const wobbleAmount = Math.sin(this.wobble) * 3;
         const scaledWidth = this.width * scale;
         const scaledHeight = this.height * scale;
-        const screenX = canvas.width / 2 + this.x * scale + wobbleAmount;
+        
+        // Apply camera offset
+        const screenX = canvas.width / 2 + (this.x + camera.x * 100) * scale + wobbleAmount;
         const screenY = this.y;
 
         // Shadow
@@ -162,7 +224,7 @@ class Coin3D {
         const scale = (canvas.height - this.y) / canvas.height;
         if (scale < 0.05) return;
 
-        const screenX = canvas.width / 2 + this.x * scale;
+        const screenX = canvas.width / 2 + (this.x + camera.x * 80) * scale;
         const screenY = this.y;
         const scaledRadius = this.radius * scale;
 
@@ -214,10 +276,23 @@ class Coin3D {
 // Event listeners
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
+    
+    if (e.key === 's' || e.key === 'S') {
+        shopOpen = !shopOpen;
+    }
+
+    // Camera controls
+    if (e.key === 'q' || e.key === 'Q') {
+        camera.targetAngle = Math.max(camera.targetAngle - 0.3, -1);
+    }
+    if (e.key === 'e' || e.key === 'E') {
+        camera.targetAngle = Math.min(camera.targetAngle + 0.3, 1);
+    }
+
     if (e.key === ' ') {
         e.preventDefault();
         if (player.boostPower > 20) {
-            player.maxSpeed = 12;
+            player.maxSpeed = upgradeShop.engine.effect(player.upgrades.engine);
             player.boostPower -= 2;
             // Boost particles
             for (let i = 0; i < 10; i++) {
@@ -236,9 +311,6 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
-    if (e.key !== ' ') {
-        player.maxSpeed = 8;
-    }
 });
 
 // Draw background stars/effects
@@ -266,7 +338,6 @@ function drawBackground() {
 function drawRoad() {
     drawBackground();
 
-    // Draw road segments with gradient
     const roadWidth = 300;
     const segmentHeight = 40;
 
@@ -421,13 +492,96 @@ function drawPlayer() {
     }
 }
 
+// Draw shop menu
+function drawShop() {
+    if (!shopOpen) return;
+
+    // Semi-transparent overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Shop title
+    ctx.fillStyle = '#00FF00';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#00FF00';
+    ctx.fillText('UPGRADE SHOP', canvas.width / 2, 60);
+    ctx.shadowBlur = 0;
+
+    // Money display
+    ctx.font = '24px Arial';
+    ctx.fillText(`Coins: ${player.money}`, canvas.width / 2, 110);
+
+    // Upgrade boxes
+    const upgrades = ['engine', 'handling', 'armor', 'turbo'];
+    const boxWidth = 200;
+    const boxHeight = 120;
+    const spacing = 40;
+    const startX = canvas.width / 2 - (boxWidth * 2 + spacing) / 2;
+    const startY = 150;
+
+    upgrades.forEach((key, index) => {
+        const shop = upgradeShop[key];
+        const level = player.upgrades[key];
+        const isMaxLevel = level >= shop.maxLevel;
+        const price = shop.price * (level + 1);
+        const canAfford = player.money >= price && !isMaxLevel;
+
+        const x = startX + (index % 2) * (boxWidth + spacing);
+        const y = startY + Math.floor(index / 2) * (boxHeight + spacing + 20);
+
+        // Box background
+        ctx.fillStyle = canAfford ? '#1a4d1a' : '#4d1a1a';
+        ctx.fillRect(x, y, boxWidth, boxHeight);
+
+        // Box border
+        ctx.strokeStyle = canAfford ? '#00FF00' : '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+        // Text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(shop.name, x + 10, y + 25);
+
+        ctx.font = '12px Arial';
+        ctx.fillText(`Lvl: ${level}/${shop.maxLevel}`, x + 10, y + 50);
+
+        if (!isMaxLevel) {
+            ctx.fillStyle = canAfford ? '#00FF00' : '#FF0000';
+            ctx.fillText(`Cost: ${price}`, x + 10, y + 75);
+            ctx.fillText('Press ' + (index === 0 ? '1' : index === 1 ? '2' : index === 2 ? '3' : '4'), x + 10, y + 100);
+        } else {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText('MAX LEVEL', x + 10, y + 75);
+        }
+    });
+
+    // Close hint
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press S to close', canvas.width / 2, canvas.height - 30);
+}
+
 // Update player
 function updatePlayer() {
+    // Camera smoothing
+    camera.angle += (camera.targetAngle - camera.angle) * 0.1;
+    camera.x = Math.sin(camera.angle * Math.PI / 2) * 0.3;
+
+    if (shopOpen) return;
+
+    // Handling upgrade affects turning
+    const turnSpeed = 6 + (player.upgrades.handling * 1.2);
+
     if (keys['ArrowLeft']) {
-        player.x = Math.max(player.x - 6, -150);
+        player.x = Math.max(player.x - turnSpeed, -150);
     }
     if (keys['ArrowRight']) {
-        player.x = Math.min(player.x + 6, 150);
+        player.x = Math.min(player.x + turnSpeed, 150);
     }
 
     if (keys['ArrowUp']) {
@@ -440,6 +594,48 @@ function updatePlayer() {
 
     if (player.boostPower < player.maxBoost) {
         player.boostPower += 0.5;
+    }
+
+    // Handle shop purchases (number keys 1-4)
+    if (keys['1']) {
+        buyUpgrade('engine');
+        keys['1'] = false;
+    }
+    if (keys['2']) {
+        buyUpgrade('handling');
+        keys['2'] = false;
+    }
+    if (keys['3']) {
+        buyUpgrade('armor');
+        keys['3'] = false;
+    }
+    if (keys['4']) {
+        buyUpgrade('turbo');
+        keys['4'] = false;
+    }
+}
+
+// Buy upgrade function
+function buyUpgrade(type) {
+    const shop = upgradeShop[type];
+    const level = player.upgrades[type];
+    
+    if (level >= shop.maxLevel) return;
+    
+    const price = shop.price * (level + 1);
+    if (player.money >= price) {
+        player.money -= price;
+        player.upgrades[type]++;
+        
+        // Apply upgrade effects
+        if (type === 'engine') {
+            player.maxSpeed = shop.effect(player.upgrades.engine);
+        } else if (type === 'armor') {
+            player.maxHealth = shop.effect(player.upgrades.armor);
+            player.health = player.maxHealth;
+        } else if (type === 'turbo') {
+            player.maxBoost = shop.effect(player.upgrades.turbo);
+        }
     }
 }
 
@@ -454,7 +650,7 @@ function checkCollisions() {
         const scale = (canvas.height - obstacle.y) / canvas.height;
         if (scale < 0.05) continue;
 
-        const obsX = canvas.width / 2 + obstacle.x * scale;
+        const obsX = canvas.width / 2 + (obstacle.x + camera.x * 100) * scale;
         const obsY = obstacle.y;
         const obsWidth = obstacle.width * scale;
         const obsHeight = obstacle.height * scale;
@@ -465,7 +661,10 @@ function checkCollisions() {
             carY < obsY + obsHeight &&
             carY + carHeight > obsY
         ) {
-            gameRunning = false;
+            player.health -= 10;
+            if (player.health <= 0) {
+                gameRunning = false;
+            }
             // Crash particles
             for (let i = 0; i < 30; i++) {
                 const angle = Math.random() * Math.PI * 2;
@@ -485,7 +684,7 @@ function checkCollisions() {
         const scale = (canvas.height - coin.y) / canvas.height;
         if (scale < 0.05) continue;
 
-        const coinX = canvas.width / 2 + coin.x * scale;
+        const coinX = canvas.width / 2 + (coin.x + camera.x * 80) * scale;
         const coinY = coin.y;
         const coinRadius = coin.radius * scale;
 
@@ -495,6 +694,7 @@ function checkCollisions() {
 
         if (distance < carWidth / 2 + coinRadius) {
             score += 10;
+            player.money += 10;
             player.boostPower = Math.min(player.boostPower + 25, player.maxBoost);
             coins.splice(i, 1);
             // Coin collection particles
@@ -539,17 +739,19 @@ function update() {
         }
     }
 
-    spawnCounter++;
-    if (spawnCounter > 60) {
-        obstacles.push(new Obstacle3D());
-        spawnCounter = 0;
-    }
+    if (!shopOpen) {
+        spawnCounter++;
+        if (spawnCounter > 60) {
+            obstacles.push(new Obstacle3D());
+            spawnCounter = 0;
+        }
 
-    if (Math.random() < 0.02) {
-        coins.push(new Coin3D());
-    }
+        if (Math.random() < 0.02) {
+            coins.push(new Coin3D());
+        }
 
-    checkCollisions();
+        checkCollisions();
+    }
 }
 
 // Draw game
@@ -573,36 +775,51 @@ function draw() {
 
     // Draw UI with better styling
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(10, 10, 200, 80);
+    ctx.fillRect(10, 10, 280, 130);
     ctx.strokeStyle = '#00FF00';
     ctx.lineWidth = 2;
-    ctx.strokeRect(10, 10, 200, 80);
+    ctx.strokeRect(10, 10, 280, 130);
 
     ctx.fillStyle = '#00FF00';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 18px Arial';
     ctx.fillText(`Score: ${Math.floor(score)}`, 20, 35);
-    ctx.font = '16px Arial';
-    ctx.fillText(`Speed: ${Math.floor(player.speed * 10)} mph`, 20, 60);
-    ctx.fillText(`Boost: ${Math.floor(player.boostPower)}%`, 20, 80);
+    ctx.font = '14px Arial';
+    ctx.fillText(`Speed: ${Math.floor(player.speed * 10)} mph`, 20, 55);
+    ctx.fillText(`Boost: ${Math.floor(player.boostPower)}%`, 20, 75);
+    ctx.fillText(`Health: ${Math.floor(player.health)}/${player.maxHealth}`, 20, 95);
+    ctx.fillText(`Coins: ${player.money}`, 20, 115);
 
-    // Draw controls hint
+    // Draw camera angle indicator
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(canvas.width - 220, 10, 210, 50);
+    ctx.fillRect(canvas.width - 200, 10, 190, 60);
     ctx.fillStyle = '#00FF00';
     ctx.font = '12px Arial';
-    ctx.fillText('← → Move | ↑↓ Speed | Space Boost', canvas.width - 210, 30);
+    ctx.fillText('Q/E: Change Camera', canvas.width - 190, 30);
+    ctx.fillText('S: Open Shop', canvas.width - 190, 45);
+
+    // Camera angle display
+    let cameraText = 'Camera: ';
+    if (camera.angle < -0.7) cameraText += 'LEFT';
+    else if (camera.angle < -0.2) cameraText += 'LEFT-REAR';
+    else if (camera.angle > 0.7) cameraText += 'RIGHT';
+    else if (camera.angle > 0.2) cameraText += 'RIGHT-REAR';
+    else cameraText += 'REAR';
+    ctx.fillText(cameraText, canvas.width - 190, 60);
 
     // Draw boost bar with glow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(canvas.width - 120, 70, 100, 20);
+    ctx.fillRect(canvas.width - 120, 80, 100, 20);
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00FF00';
     ctx.fillStyle = '#00FF00';
-    ctx.fillRect(canvas.width - 120, 70, player.boostPower, 20);
+    ctx.fillRect(canvas.width - 120, 80, player.boostPower, 20);
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#00FF00';
     ctx.lineWidth = 2;
-    ctx.strokeRect(canvas.width - 120, 70, 100, 20);
+    ctx.strokeRect(canvas.width - 120, 80, 100, 20);
+
+    // Draw shop if open
+    drawShop();
 }
 
 // Game loop
@@ -621,18 +838,19 @@ function gameLoop() {
         ctx.fillStyle = '#FF0000';
         ctx.font = 'bold 80px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('CRASH!', canvas.width / 2, canvas.height / 2 - 50);
+        ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 50);
 
         ctx.shadowBlur = 10;
         ctx.shadowColor = '#FFD700';
         ctx.fillStyle = '#FFD700';
         ctx.font = '40px Arial';
         ctx.fillText(`Final Score: ${Math.floor(score)}`, canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText(`Coins Earned: ${player.money}`, canvas.width / 2, canvas.height / 2 + 90);
 
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#00FF00';
         ctx.font = '20px Arial';
-        ctx.fillText('Refresh to play again', canvas.width / 2, canvas.height / 2 + 100);
+        ctx.fillText('Refresh to play again', canvas.width / 2, canvas.height / 2 + 150);
     }
 }
 
