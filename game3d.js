@@ -313,7 +313,7 @@ window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
 
-// Draw background stars/effects
+// Draw background - sky and stars
 function drawBackground() {
     // Sky gradient
     const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -323,24 +323,25 @@ function drawBackground() {
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Twinkling stars
+    // Twinkling stars in upper sky
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     for (let i = 0; i < 50; i++) {
         const starX = (i * 100 + Math.sin(Date.now() * 0.0001 + i) * 50) % canvas.width;
-        const starY = (i * 50 + Math.cos(Date.now() * 0.00015 + i) * 30) % (canvas.height * 0.3);
+        const starY = (i * 50 + Math.cos(Date.now() * 0.00015 + i) * 30) % (canvas.height * 0.2);
         ctx.beginPath();
         ctx.arc(starX, starY, 1, 0, Math.PI * 2);
         ctx.fill();
     }
 }
 
-// Draw road with enhanced graphics
+// Draw road with perspective (TOP section - horizon)
 function drawRoad() {
     drawBackground();
 
     const roadWidth = 300;
     const segmentHeight = 40;
 
+    // Draw road segments from TOP (horizon) downward
     for (let i = 0; i < canvas.height; i += segmentHeight) {
         const scale = (canvas.height - i) / canvas.height;
         const width = roadWidth * scale;
@@ -389,104 +390,130 @@ function drawRoad() {
     ctx.setLineDash([]);
 }
 
-// Draw player car with enhanced graphics - show BACK of car
+// Draw player car - REAR VIEW at BOTTOM of screen
 function drawPlayer() {
     const carX = canvas.width / 2 + player.x;
-    const carY = canvas.height - 100;
-    const carWidth = 50;
-    const carHeight = 80;
+    const carY = canvas.height - 120;  // Position at bottom
+    const carWidth = 80;
+    const carHeight = 100;
 
     // Car shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.ellipse(carX, carY + carHeight + 10, carWidth / 1.5, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.ellipse(carX, carY + carHeight + 15, carWidth / 1.5, 10, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Car body gradient - BACK VIEW (bottom to top, showing rear)
-    const carGradient = ctx.createLinearGradient(carX - carWidth / 2, carY, carX - carWidth / 2, carY - carHeight);
-    carGradient.addColorStop(0, '#004400');      // Front (bottom - closer)
+    // REAR CAR BODY - Show back view (3D perspective)
+    const carGradient = ctx.createLinearGradient(carX - carWidth / 2, carY, carX - carWidth / 2, carY + carHeight);
+    carGradient.addColorStop(0, '#006600');      // Top of car (back)
     carGradient.addColorStop(0.5, '#008800');    // Middle
-    carGradient.addColorStop(1, '#00CC00');      // Back (top - farther)
+    carGradient.addColorStop(1, '#00AA00');      // Bottom of car (front/closest)
     ctx.fillStyle = carGradient;
-    ctx.fillRect(carX - carWidth / 2, carY - carHeight, carWidth, carHeight);
+    ctx.fillRect(carX - carWidth / 2, carY, carWidth, carHeight);
 
     // Car outline
     ctx.strokeStyle = '#003300';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(carX - carWidth / 2, carY, carWidth, carHeight);
+
+    // REAR WINDOW (upper part - rear windshield)
+    const rearWindowGradient = ctx.createLinearGradient(carX - carWidth / 2 + 10, carY + 15, carX - carWidth / 2 + 10, carY + 35);
+    rearWindowGradient.addColorStop(0, '#0099FF');
+    rearWindowGradient.addColorStop(1, '#00CCFF');
+    ctx.fillStyle = rearWindowGradient;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00FFFF';
+    ctx.fillRect(carX - carWidth / 2 + 8, carY + 12, carWidth - 16, 28);
+    ctx.strokeStyle = '#0066FF';
     ctx.lineWidth = 2;
-    ctx.strokeRect(carX - carWidth / 2, carY - carHeight, carWidth, carHeight);
+    ctx.shadowBlur = 0;
+    ctx.strokeRect(carX - carWidth / 2 + 8, carY + 12, carWidth - 16, 28);
 
-    // REAR WINDOWS (top part of car in rear view)
-    const rearWindowGradient = ctx.createLinearGradient(carX - carWidth / 2, carY - carHeight + 10, carX - carWidth / 2, carY - carHeight + 30);
-    rearWindowGradient.addColorStop(0, '#00FFFF');
-    rearWindowGradient.addColorStop(1, '#0099FF');
-    ctx.fillStyle = rearWindowGradient;
+    // MIDDLE WINDOW SECTION
+    const midWindowGradient = ctx.createLinearGradient(carX - carWidth / 2 + 10, carY + 50, carX - carWidth / 2 + 10, carY + 70);
+    midWindowGradient.addColorStop(0, '#0099FF');
+    midWindowGradient.addColorStop(1, '#00CCFF');
+    ctx.fillStyle = midWindowGradient;
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#00FFFF';
-    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 10, carWidth - 10, 20);
+    ctx.fillRect(carX - carWidth / 2 + 8, carY + 47, carWidth - 16, 26);
     ctx.strokeStyle = '#0066FF';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 10, carWidth - 10, 20);
+    ctx.lineWidth = 2;
     ctx.shadowBlur = 0;
+    ctx.strokeRect(carX - carWidth / 2 + 8, carY + 47, carWidth - 16, 26);
 
-    // MIDDLE WINDOW (rear view)
-    ctx.fillStyle = rearWindowGradient;
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#00FFFF';
-    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 40, carWidth - 10, 20);
-    ctx.strokeStyle = '#0066FF';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(carX - carWidth / 2 + 5, carY - carHeight + 40, carWidth - 10, 20);
-    ctx.shadowBlur = 0;
-
-    // BRAKE LIGHTS (red lights at back/bottom of car in rear view)
+    // BRAKE LIGHTS - Large red glowing circles at back (top of car in rear view)
     ctx.fillStyle = '#FF0000';
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 30;
     ctx.shadowColor = '#FF0000';
     ctx.beginPath();
-    ctx.arc(carX - 15, carY - carHeight + 5, 8, 0, Math.PI * 2);
+    ctx.arc(carX - carWidth / 4, carY + 8, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(carX + 15, carY - carHeight + 5, 8, 0, Math.PI * 2);
+    ctx.arc(carX + carWidth / 4, carY + 8, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Trunk/Rear bumper detail
+    // License plate area
     ctx.fillStyle = '#333';
-    ctx.fillRect(carX - carWidth / 2, carY - carHeight - 5, carWidth, 5);
-    ctx.strokeStyle = '#111';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(carX - carWidth / 2, carY - carHeight - 5, carWidth, 5);
-
-    // Wheels with rim detail
-    ctx.fillStyle = '#111';
-    ctx.fillRect(carX - carWidth / 2 - 5, carY, 10, 15);
-    ctx.fillRect(carX + carWidth / 2 - 5, carY, 10, 15);
-    ctx.fillStyle = '#444';
-    ctx.beginPath();
-    ctx.arc(carX - carWidth / 2, carY + 7, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(carX + carWidth / 2, carY + 7, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rim highlight
+    ctx.fillRect(carX - carWidth / 3, carY - 10, carWidth * 0.66, 8);
     ctx.strokeStyle = '#666';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(carX - carWidth / 3, carY - 10, carWidth * 0.66, 8);
+
+    // WHEELS
+    ctx.fillStyle = '#111';
+    ctx.fillRect(carX - carWidth / 2 - 8, carY + carHeight - 15, 16, 18);
+    ctx.fillRect(carX + carWidth / 2 - 8, carY + carHeight - 15, 16, 18);
+    
+    // Wheel rims with highlights
+    ctx.fillStyle = '#333';
     ctx.beginPath();
-    ctx.arc(carX - carWidth / 2, carY + 7, 6, 0, Math.PI * 2);
+    ctx.arc(carX - carWidth / 2, carY + carHeight - 5, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(carX + carWidth / 2, carY + carHeight - 5, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rim shine
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(carX - carWidth / 2, carY + carHeight - 5, 12, 0, Math.PI * 2);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(carX + carWidth / 2, carY + 7, 6, 0, Math.PI * 2);
+    ctx.arc(carX + carWidth / 2, carY + carHeight - 5, 12, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Exhaust smoke when moving fast
+    // Exhaust pipes
+    ctx.fillStyle = '#222';
+    ctx.fillRect(carX - 25, carY + carHeight + 3, 8, 12);
+    ctx.fillRect(carX + 17, carY + carHeight + 3, 8, 12);
+
+    // Exhaust smoke when accelerating
     if (player.speed > 3) {
-        ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+        ctx.fillStyle = 'rgba(80, 80, 80, 0.4)';
         ctx.beginPath();
-        ctx.ellipse(carX - 10, carY + 10 + (player.speed * 5), 8, 12, 0, 0, Math.PI * 2);
+        ctx.ellipse(carX - 21, carY + carHeight + 15 + (player.speed * 5), 10, 20, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(carX + 10, carY + 10 + (player.speed * 5), 8, 12, 0, 0, Math.PI * 2);
+        ctx.ellipse(carX + 21, carY + carHeight + 15 + (player.speed * 5), 10, 20, 0, 0, Math.PI * 2);
         ctx.fill();
+    }
+
+    // Speed lines on sides when moving fast
+    if (player.speed > 5) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(carX - carWidth / 2 - 15 - i * 8, carY + carHeight / 2 + (i % 2) * 15);
+            ctx.lineTo(carX - carWidth / 2 - 40 - i * 8, carY + carHeight / 2 + (i % 2) * 15);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(carX + carWidth / 2 + 15 + i * 8, carY + carHeight / 2 + (i % 2) * 15);
+            ctx.lineTo(carX + carWidth / 2 + 40 + i * 8, carY + carHeight / 2 + (i % 2) * 15);
+            ctx.stroke();
+        }
     }
 }
 
@@ -566,9 +593,9 @@ function drawShop() {
 
 // Update player
 function updatePlayer() {
-    // Camera smoothing - MUCH FASTER response
+    // Camera smoothing
     camera.angle += (camera.targetAngle - camera.angle) * 0.2;
-    camera.x = camera.angle; // Direct mapping - no sin for visibility
+    camera.x = camera.angle;
 
     if (shopOpen) return;
 
@@ -594,7 +621,7 @@ function updatePlayer() {
         player.boostPower += 0.5;
     }
 
-    // Handle shop purchases (number keys 1-4)
+    // Handle shop purchases
     if (keys['1']) {
         buyUpgrade('engine');
         keys['1'] = false;
@@ -625,7 +652,6 @@ function buyUpgrade(type) {
         player.money -= price;
         player.upgrades[type]++;
         
-        // Apply upgrade effects
         if (type === 'engine') {
             player.maxSpeed = shop.effect(player.upgrades.engine);
         } else if (type === 'armor') {
@@ -640,9 +666,9 @@ function buyUpgrade(type) {
 // Check collisions
 function checkCollisions() {
     const carX = canvas.width / 2 + player.x;
-    const carY = canvas.height - 100;
-    const carWidth = 50;
-    const carHeight = 80;
+    const carY = canvas.height - 120;
+    const carWidth = 80;
+    const carHeight = 100;
 
     for (let obstacle of obstacles) {
         const scale = (canvas.height - obstacle.y) / canvas.height;
@@ -663,7 +689,6 @@ function checkCollisions() {
             if (player.health <= 0) {
                 gameRunning = false;
             }
-            // Crash particles
             for (let i = 0; i < 30; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 particleEffect.push(new Particle(
@@ -695,7 +720,6 @@ function checkCollisions() {
             player.money += 10;
             player.boostPower = Math.min(player.boostPower + 25, player.maxBoost);
             coins.splice(i, 1);
-            // Coin collection particles
             for (let j = 0; j < 15; j++) {
                 const angle = Math.random() * Math.PI * 2;
                 particleEffect.push(new Particle(
@@ -729,7 +753,6 @@ function update() {
         }
     }
 
-    // Update particles
     for (let i = particleEffect.length - 1; i >= 0; i--) {
         particleEffect[i].update();
         if (!particleEffect[i].isAlive()) {
@@ -766,12 +789,11 @@ function draw() {
 
     drawPlayer();
 
-    // Draw particles
     for (let particle of particleEffect) {
         particle.draw();
     }
 
-    // Draw UI with better styling
+    // HUD
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(10, 10, 280, 130);
     ctx.strokeStyle = '#00FF00';
@@ -780,6 +802,7 @@ function draw() {
 
     ctx.fillStyle = '#00FF00';
     ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
     ctx.fillText(`Score: ${Math.floor(score)}`, 20, 35);
     ctx.font = '14px Arial';
     ctx.fillText(`Speed: ${Math.floor(player.speed * 10)} mph`, 20, 55);
@@ -787,15 +810,15 @@ function draw() {
     ctx.fillText(`Health: ${Math.floor(player.health)}/${player.maxHealth}`, 20, 95);
     ctx.fillText(`Coins: ${player.money}`, 20, 115);
 
-    // Draw camera angle indicator
+    // Camera info
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(canvas.width - 200, 10, 190, 80);
     ctx.fillStyle = '#00FF00';
     ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
     ctx.fillText('Q/E: Change Camera', canvas.width - 190, 30);
     ctx.fillText('S: Open Shop', canvas.width - 190, 45);
 
-    // Camera angle display
     let cameraText = 'Camera: ';
     if (camera.angle < -0.6) cameraText += 'LEFT';
     else if (camera.angle < -0.2) cameraText += 'LEFT-REAR';
@@ -805,7 +828,7 @@ function draw() {
     ctx.fillText(cameraText, canvas.width - 190, 60);
     ctx.fillText(`(${camera.angle.toFixed(1)})`, canvas.width - 190, 75);
 
-    // Draw boost bar with glow
+    // Boost bar
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(canvas.width - 120, 100, 100, 20);
     ctx.shadowBlur = 10;
@@ -817,7 +840,6 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.strokeRect(canvas.width - 120, 100, 100, 20);
 
-    // Draw shop if open
     drawShop();
 }
 
@@ -828,7 +850,6 @@ function gameLoop() {
         draw();
         requestAnimationFrame(gameLoop);
     } else {
-        // Game over screen with enhanced graphics
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -853,5 +874,4 @@ function gameLoop() {
     }
 }
 
-// Start game
 gameLoop();
