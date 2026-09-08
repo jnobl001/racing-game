@@ -6,80 +6,108 @@ const keys = {};
 let score = 0;
 let gameRunning = true;
 
-// Camera/perspective settings
-const camera = {
-    x: 0,
-    z: 0,
-    fov: 90,
-    height: 3
-};
-
 // Player car
 const player = {
     x: 0,
-    z: -10,
-    width: 2,
-    height: 1.5,
     speed: 0,
-    maxSpeed: 0.3,
-    acceleration: 0.015,
-    friction: 0.92,
-    angle: 0,
+    maxSpeed: 8,
+    acceleration: 0.3,
+    friction: 0.95,
     boostPower: 0,
     maxBoost: 100
 };
 
-// Road segments
-let roadSegments = [];
-let obstacleSegments = [];
-let coinSegments = [];
-let distanceTraveled = 0;
+// Road position
+let roadOffset = 0;
 
-// Obstacle class for 3D
+// Obstacles and coins
+let obstacles = [];
+let coins = [];
+let spawnCounter = 0;
+
+// 3D Obstacle class
 class Obstacle3D {
-    constructor(z) {
-        this.z = z;
-        this.x = (Math.random() - 0.5) * 6;
-        this.width = 1.5;
-        this.height = 1.2;
-        this.passed = false;
+    constructor() {
+        this.y = -100;
+        this.x = (Math.random() - 0.5) * 200;
+        this.width = 50;
+        this.height = 60;
     }
 
     update() {
-        this.z += player.speed;
+        this.y += player.speed;
     }
 
     isOffScreen() {
-        return this.z > 5;
+        return this.y > canvas.height + 50;
+    }
+
+    draw() {
+        // Perspective scaling based on Y position
+        const scale = (canvas.height - this.y) / canvas.height;
+        if (scale < 0.1) return;
+
+        const scaledWidth = this.width * scale;
+        const scaledHeight = this.height * scale;
+        const screenX = canvas.width / 2 + this.x * scale;
+        const screenY = this.y;
+
+        // Car body
+        ctx.fillStyle = '#FF6B6B';
+        ctx.fillRect(screenX - scaledWidth / 2, screenY, scaledWidth, scaledHeight);
+
+        // Car outline
+        ctx.strokeStyle = '#8B0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(screenX - scaledWidth / 2, screenY, scaledWidth, scaledHeight);
+
+        // Windows
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(screenX - scaledWidth / 2 + 5, screenY + 10, scaledWidth - 10, scaledHeight * 0.3);
     }
 }
 
-// Coin class for 3D
+// 3D Coin class
 class Coin3D {
-    constructor(z) {
-        this.z = z;
-        this.x = (Math.random() - 0.5) * 5;
-        this.radius = 0.3;
+    constructor() {
+        this.y = -100;
+        this.x = (Math.random() - 0.5) * 180;
+        this.radius = 12;
         this.rotation = 0;
-        this.collected = false;
     }
 
     update() {
-        this.z += player.speed;
-        this.rotation += 0.1;
+        this.y += player.speed;
+        this.rotation += 0.05;
     }
 
     isOffScreen() {
-        return this.z > 5;
+        return this.y > canvas.height + 50;
     }
-}
 
-// 3D to 2D projection
-function project3D(x, y, z) {
-    const scale = 1 / (z + camera.height);
-    const screenX = canvas.width / 2 + x * scale * (canvas.width / 2);
-    const screenY = canvas.height / 2 - y * scale * (canvas.height / 2);
-    return { x: screenX, y: screenY, scale };
+    draw() {
+        const scale = (canvas.height - this.y) / canvas.height;
+        if (scale < 0.1) return;
+
+        const screenX = canvas.width / 2 + this.x * scale;
+        const screenY = this.y;
+        const scaledRadius = this.radius * scale;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(this.rotation);
+
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(0, 0, scaledRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#FFA500';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+    }
 }
 
 // Event listeners
@@ -88,7 +116,7 @@ window.addEventListener('keydown', (e) => {
     if (e.key === ' ') {
         e.preventDefault();
         if (player.boostPower > 20) {
-            player.maxSpeed = 0.45;
+            player.maxSpeed = 12;
             player.boostPower -= 2;
         }
     }
@@ -97,194 +125,147 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
     if (e.key !== ' ') {
-        player.maxSpeed = 0.3;
+        player.maxSpeed = 8;
     }
 });
 
-// Draw road
+// Draw road with perspective
 function drawRoad() {
     ctx.fillStyle = '#333';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw road segments
-    const roadWidth = 6;
-    const segmentHeight = 1;
+    // Draw road lines converging to center
+    const roadWidth = 300;
+    const segmentHeight = 40;
 
-    for (let z = -30; z < 5; z += segmentHeight) {
-        const projLeft = project3D(-roadWidth / 2, 0, z);
-        const projRight = project3D(roadWidth / 2, 0, z);
-        const projLeftNext = project3D(-roadWidth / 2, 0, z + segmentHeight);
-        const projRightNext = project3D(roadWidth / 2, 0, z + segmentHeight);
+    for (let i = 0; i < canvas.height; i += segmentHeight) {
+        const scale = (canvas.height - i) / canvas.height;
+        const width = roadWidth * scale;
 
         // Alternate road color
-        if (Math.floor((z + 30) / segmentHeight) % 2 === 0) {
+        if (Math.floor(i / segmentHeight) % 2 === 0) {
             ctx.fillStyle = '#444';
         } else {
             ctx.fillStyle = '#555';
         }
 
+        ctx.fillRect(canvas.width / 2 - width / 2, i, width, segmentHeight);
+
+        // Center line
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(projLeft.x, projLeft.y);
-        ctx.lineTo(projRight.x, projRight.y);
-        ctx.lineTo(projRightNext.x, projRightNext.y);
-        ctx.lineTo(projLeftNext.x, projLeftNext.y);
-        ctx.fill();
+        ctx.moveTo(canvas.width / 2, i);
+        ctx.lineTo(canvas.width / 2, i + segmentHeight);
+        ctx.stroke();
 
-        // Road lines
-        if (Math.floor((z + 30) / (segmentHeight * 2)) % 2 === 0) {
-            ctx.strokeStyle = '#FFD700';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width / 2, projLeft.y);
-            ctx.lineTo(canvas.width / 2, projLeftNext.y);
-            ctx.stroke();
-        }
-    }
-
-    // Road edges
-    ctx.strokeStyle = '#FFFF00';
-    ctx.lineWidth = 3;
-    for (let z = -30; z < 5; z += 0.5) {
-        const projLeftCur = project3D(-roadWidth / 2, 0, z);
-        const projLeftNext = project3D(-roadWidth / 2, 0, z + 0.5);
-        const projRightCur = project3D(roadWidth / 2, 0, z);
-        const projRightNext = project3D(roadWidth / 2, 0, z + 0.5);
-
+        // Side lines
+        ctx.strokeStyle = '#FFFF00';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(projLeftCur.x, projLeftCur.y);
-        ctx.lineTo(projLeftNext.x, projLeftNext.y);
+        ctx.moveTo(canvas.width / 2 - width / 2, i);
+        ctx.lineTo(canvas.width / 2 - width / 2, i + segmentHeight);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.moveTo(projRightCur.x, projRightCur.y);
-        ctx.lineTo(projRightNext.x, projRightNext.y);
+        ctx.moveTo(canvas.width / 2 + width / 2, i);
+        ctx.lineTo(canvas.width / 2 + width / 2, i + segmentHeight);
         ctx.stroke();
     }
 }
 
-// Draw 3D car from behind
+// Draw player car (fixed at bottom)
 function drawPlayer() {
-    const proj = project3D(player.x, 0, player.z);
-    const carScale = proj.scale * 3;
+    const carX = canvas.width / 2 + player.x;
+    const carY = canvas.height - 100;
+    const carWidth = 50;
+    const carHeight = 80;
 
     // Car body
     ctx.fillStyle = '#00AA00';
-    const bodyWidth = player.width * carScale * 200;
-    const bodyHeight = player.height * carScale * 200;
-    ctx.fillRect(proj.x - bodyWidth / 2, proj.y - bodyHeight, bodyWidth, bodyHeight);
+    ctx.fillRect(carX - carWidth / 2, carY - carHeight, carWidth, carHeight);
 
     // Car windows
     ctx.fillStyle = '#87CEEB';
-    ctx.fillRect(proj.x - bodyWidth / 2 + 5, proj.y - bodyHeight + 15, bodyWidth - 10, 20);
-    ctx.fillRect(proj.x - bodyWidth / 2 + 5, proj.y - bodyHeight + 45, bodyWidth - 10, 20);
+    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 15, carWidth - 10, 20);
+    ctx.fillRect(carX - carWidth / 2 + 5, carY - carHeight + 45, carWidth - 10, 20);
 
     // Car headlights
     ctx.fillStyle = '#FFFF00';
-    ctx.fillRect(proj.x - bodyWidth / 2 + 8, proj.y - bodyHeight - 5, 6, 5);
-    ctx.fillRect(proj.x + bodyWidth / 2 - 14, proj.y - bodyHeight - 5, 6, 5);
+    ctx.fillRect(carX - 15, carY - carHeight - 5, 6, 5);
+    ctx.fillRect(carX + 9, carY - carHeight - 5, 6, 5);
 
     // Wheels
     ctx.fillStyle = '#333';
-    ctx.fillRect(proj.x - bodyWidth / 2 - 5, proj.y, 10, 15);
-    ctx.fillRect(proj.x + bodyWidth / 2 - 5, proj.y, 10, 15);
-}
-
-// Draw obstacles
-function drawObstacles() {
-    for (let obstacle of obstacleSegments) {
-        if (obstacle.z > -20 && obstacle.z < 5) {
-            const proj = project3D(obstacle.x, 0, obstacle.z);
-            const obsScale = proj.scale * 2;
-            const obsWidth = obstacle.width * obsScale * 200;
-            const obsHeight = obstacle.height * obsScale * 200;
-
-            ctx.fillStyle = '#FF6B6B';
-            ctx.fillRect(proj.x - obsWidth / 2, proj.y - obsHeight, obsWidth, obsHeight);
-
-            ctx.strokeStyle = '#8B0000';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(proj.x - obsWidth / 2, proj.y - obsHeight, obsWidth, obsHeight);
-
-            // Windows
-            ctx.fillStyle = '#FFD700';
-            ctx.fillRect(proj.x - obsWidth / 2 + 5, proj.y - obsHeight + 10, obsWidth - 10, 15);
-        }
-    }
-}
-
-// Draw coins
-function drawCoins() {
-    for (let coin of coinSegments) {
-        if (coin.z > -20 && coin.z < 5) {
-            const proj = project3D(coin.x, 0.5, coin.z);
-            const coinSize = proj.scale * 30;
-
-            ctx.save();
-            ctx.translate(proj.x, proj.y);
-            ctx.rotate(coin.rotation);
-
-            ctx.fillStyle = '#FFD700';
-            ctx.beginPath();
-            ctx.arc(0, 0, coinSize, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = '#FFA500';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.restore();
-        }
-    }
+    ctx.fillRect(carX - carWidth / 2 - 5, carY, 10, 15);
+    ctx.fillRect(carX + carWidth / 2 - 5, carY, 10, 15);
 }
 
 // Update player
 function updatePlayer() {
-    // Horizontal movement
     if (keys['ArrowLeft']) {
-        player.x = Math.max(player.x - 0.15, -2.5);
+        player.x = Math.max(player.x - 6, -150);
     }
     if (keys['ArrowRight']) {
-        player.x = Math.min(player.x + 0.15, 2.5);
+        player.x = Math.min(player.x + 6, 150);
     }
 
-    // Speed control
     if (keys['ArrowUp']) {
         player.speed = Math.min(player.speed + player.acceleration, player.maxSpeed);
     } else if (keys['ArrowDown']) {
-        player.speed = Math.max(player.speed - player.acceleration, -0.1);
+        player.speed = Math.max(player.speed - player.acceleration, 0);
     } else {
         player.speed *= player.friction;
     }
 
-    // Boost recovery
     if (player.boostPower < player.maxBoost) {
         player.boostPower += 0.5;
     }
-
-    distanceTraveled += player.speed;
 }
 
 // Check collisions
 function checkCollisions() {
-    for (let obstacle of obstacleSegments) {
-        if (obstacle.z > -2 && obstacle.z < 2) {
-            if (Math.abs(player.x - obstacle.x) < 2 && !obstacle.passed) {
-                gameRunning = false;
-            }
-        }
-        if (obstacle.z < -2 && !obstacle.passed) {
-            obstacle.passed = true;
-            score += 5;
+    const carX = canvas.width / 2 + player.x;
+    const carY = canvas.height - 100;
+    const carWidth = 50;
+    const carHeight = 80;
+
+    for (let obstacle of obstacles) {
+        const scale = (canvas.height - obstacle.y) / canvas.height;
+        if (scale < 0.1) continue;
+
+        const obsX = canvas.width / 2 + obstacle.x * scale;
+        const obsY = obstacle.y;
+        const obsWidth = obstacle.width * scale;
+        const obsHeight = obstacle.height * scale;
+
+        if (
+            carX - carWidth / 2 < obsX + obsWidth / 2 &&
+            carX + carWidth / 2 > obsX - obsWidth / 2 &&
+            carY < obsY + obsHeight &&
+            carY + carHeight > obsY
+        ) {
+            gameRunning = false;
         }
     }
 
-    for (let coin of coinSegments) {
-        if (coin.z > -1.5 && coin.z < 1.5) {
-            if (Math.abs(player.x - coin.x) < 1.5 && !coin.collected) {
-                coin.collected = true;
-                score += 10;
-                player.boostPower = Math.min(player.boostPower + 20, player.maxBoost);
-            }
+    for (let i = coins.length - 1; i >= 0; i--) {
+        const coin = coins[i];
+        const scale = (canvas.height - coin.y) / canvas.height;
+        if (scale < 0.1) continue;
+
+        const coinX = canvas.width / 2 + coin.x * scale;
+        const coinY = coin.y;
+        const coinRadius = coin.radius * scale;
+
+        const dx = carX - coinX;
+        const dy = carY - coinY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < carWidth / 2 + coinRadius) {
+            score += 10;
+            player.boostPower = Math.min(player.boostPower + 25, player.maxBoost);
+            coins.splice(i, 1);
         }
     }
 }
@@ -294,29 +275,32 @@ function update() {
     updatePlayer();
 
     // Update obstacles
-    for (let i = obstacleSegments.length - 1; i >= 0; i--) {
-        obstacleSegments[i].update();
-        if (obstacleSegments[i].isOffScreen()) {
-            obstacleSegments.splice(i, 1);
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].update();
+        if (obstacles[i].isOffScreen()) {
+            obstacles.splice(i, 1);
+            score += 5;
         }
     }
 
     // Update coins
-    for (let i = coinSegments.length - 1; i >= 0; i--) {
-        coinSegments[i].update();
-        if (coinSegments[i].isOffScreen()) {
-            coinSegments.splice(i, 1);
+    for (let i = coins.length - 1; i >= 0; i--) {
+        coins[i].update();
+        if (coins[i].isOffScreen()) {
+            coins.splice(i, 1);
         }
     }
 
     // Spawn obstacles
-    if (distanceTraveled % 2 < 0.05) {
-        obstacleSegments.push(new Obstacle3D(-30));
+    spawnCounter++;
+    if (spawnCounter > 60) {
+        obstacles.push(new Obstacle3D());
+        spawnCounter = 0;
     }
 
     // Spawn coins
-    if (distanceTraveled % 1.5 < 0.05) {
-        coinSegments.push(new Coin3D(-30));
+    if (Math.random() < 0.02) {
+        coins.push(new Coin3D());
     }
 
     checkCollisions();
@@ -325,13 +309,22 @@ function update() {
 // Draw game
 function draw() {
     drawRoad();
-    drawCoins();
-    drawObstacles();
+
+    // Draw coins (behind obstacles)
+    for (let coin of coins) {
+        coin.draw();
+    }
+
+    // Draw obstacles
+    for (let obstacle of obstacles) {
+        obstacle.draw();
+    }
+
     drawPlayer();
 
     // Update UI
     document.getElementById('score').textContent = `Score: ${Math.floor(score)}`;
-    document.getElementById('speed').textContent = `Speed: ${Math.floor(player.speed * 100)} mph`;
+    document.getElementById('speed').textContent = `Speed: ${Math.floor(player.speed * 10)} mph`;
 
     // Draw boost bar
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
