@@ -10,7 +10,7 @@ let shopOpen = false;
 
 // Camera system
 const camera = {
-    angle: 0, // 0 = rear view, 1 = right, -1 = left, 0.5 = right-rear, -0.5 = left-rear
+    angle: 0, // 0 = rear view, 1 = right, -1 = left
     targetAngle: 0,
     x: 0,
     y: 0,
@@ -144,8 +144,8 @@ class Obstacle3D {
         const scaledWidth = this.width * scale;
         const scaledHeight = this.height * scale;
         
-        // Apply camera offset
-        const screenX = canvas.width / 2 + (this.x + camera.x * 100) * scale + wobbleAmount;
+        // Apply MUCH LARGER camera offset
+        const screenX = canvas.width / 2 + (this.x + camera.x * 300) * scale + wobbleAmount;
         const screenY = this.y;
 
         // Shadow
@@ -224,7 +224,7 @@ class Coin3D {
         const scale = (canvas.height - this.y) / canvas.height;
         if (scale < 0.05) return;
 
-        const screenX = canvas.width / 2 + (this.x + camera.x * 80) * scale;
+        const screenX = canvas.width / 2 + (this.x + camera.x * 300) * scale;
         const screenY = this.y;
         const scaledRadius = this.radius * scale;
 
@@ -281,12 +281,12 @@ window.addEventListener('keydown', (e) => {
         shopOpen = !shopOpen;
     }
 
-    // Camera controls
+    // Camera controls - LARGER increments
     if (e.key === 'q' || e.key === 'Q') {
-        camera.targetAngle = Math.max(camera.targetAngle - 0.3, -1);
+        camera.targetAngle = Math.max(camera.targetAngle - 0.5, -1);
     }
     if (e.key === 'e' || e.key === 'E') {
-        camera.targetAngle = Math.min(camera.targetAngle + 0.3, 1);
+        camera.targetAngle = Math.min(camera.targetAngle + 0.5, 1);
     }
 
     if (e.key === ' ') {
@@ -568,9 +568,9 @@ function drawShop() {
 
 // Update player
 function updatePlayer() {
-    // Camera smoothing
-    camera.angle += (camera.targetAngle - camera.angle) * 0.1;
-    camera.x = Math.sin(camera.angle * Math.PI / 2) * 0.3;
+    // Camera smoothing - MUCH FASTER response
+    camera.angle += (camera.targetAngle - camera.angle) * 0.2;
+    camera.x = camera.angle; // Direct mapping - no sin for visibility
 
     if (shopOpen) return;
 
@@ -650,7 +650,7 @@ function checkCollisions() {
         const scale = (canvas.height - obstacle.y) / canvas.height;
         if (scale < 0.05) continue;
 
-        const obsX = canvas.width / 2 + (obstacle.x + camera.x * 100) * scale;
+        const obsX = canvas.width / 2 + (obstacle.x + camera.x * 300) * scale;
         const obsY = obstacle.y;
         const obsWidth = obstacle.width * scale;
         const obsHeight = obstacle.height * scale;
@@ -684,7 +684,7 @@ function checkCollisions() {
         const scale = (canvas.height - coin.y) / canvas.height;
         if (scale < 0.05) continue;
 
-        const coinX = canvas.width / 2 + (coin.x + camera.x * 80) * scale;
+        const coinX = canvas.width / 2 + (coin.x + camera.x * 300) * scale;
         const coinY = coin.y;
         const coinRadius = coin.radius * scale;
 
@@ -791,7 +791,7 @@ function draw() {
 
     // Draw camera angle indicator
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(canvas.width - 200, 10, 190, 60);
+    ctx.fillRect(canvas.width - 200, 10, 190, 80);
     ctx.fillStyle = '#00FF00';
     ctx.font = '12px Arial';
     ctx.fillText('Q/E: Change Camera', canvas.width - 190, 30);
@@ -799,24 +799,25 @@ function draw() {
 
     // Camera angle display
     let cameraText = 'Camera: ';
-    if (camera.angle < -0.7) cameraText += 'LEFT';
+    if (camera.angle < -0.6) cameraText += 'LEFT';
     else if (camera.angle < -0.2) cameraText += 'LEFT-REAR';
-    else if (camera.angle > 0.7) cameraText += 'RIGHT';
+    else if (camera.angle > 0.6) cameraText += 'RIGHT';
     else if (camera.angle > 0.2) cameraText += 'RIGHT-REAR';
     else cameraText += 'REAR';
     ctx.fillText(cameraText, canvas.width - 190, 60);
+    ctx.fillText(`(${camera.angle.toFixed(1)})`, canvas.width - 190, 75);
 
     // Draw boost bar with glow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(canvas.width - 120, 80, 100, 20);
+    ctx.fillRect(canvas.width - 120, 100, 100, 20);
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00FF00';
     ctx.fillStyle = '#00FF00';
-    ctx.fillRect(canvas.width - 120, 80, player.boostPower, 20);
+    ctx.fillRect(canvas.width - 120, 100, player.boostPower, 20);
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#00FF00';
     ctx.lineWidth = 2;
-    ctx.strokeRect(canvas.width - 120, 80, 100, 20);
+    ctx.strokeRect(canvas.width - 120, 100, 100, 20);
 
     // Draw shop if open
     drawShop();
